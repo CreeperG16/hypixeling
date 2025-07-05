@@ -18,7 +18,7 @@ const COLOURS = {
 
 class SkyblockUpdateNotifier {
     /** @type {Client} @readonly */
-    client = new Client({ apiKeys: [process.env.HYPIXEL_API_KEY] }).start();
+    client = new Client({ apiKeys: [process.env.HYPIXEL_DEV_API_KEY] }).start();
 
     /** @type {Map<string, Awaited<ReturnType<typeof Client.prototype.skyblock.fetchItems>>["items"][number]>} @readonly */
     skyblockItems = new Map();
