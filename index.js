@@ -5,7 +5,8 @@ import { Client, Player } from "hypixel.ts";
 import fs from "node:fs";
 import data from "./1.12.2.json" with { type: "json" };
 
-const assets = await import("minecraft-assets").then((x) => x.default("1.12"));
+const assets1_12 = await import("minecraft-assets").then((x) => x.default("1.12"));
+const assets1_21 = await import("minecraft-assets").then((x) => x.default("1.21.4"));
 
 const COLOURS = {
     FARMING: 0xe0c878,
@@ -15,6 +16,9 @@ const COLOURS = {
     FISHING: 0x3498db,
     RIFT: 0x9b59b6,
 };
+
+// Check every five minutes
+const FETCH_INTERVAL = 5 * 60 * 1000;
 
 class SkyblockUpdateNotifier {
     /** @type {Client} @readonly */
@@ -69,11 +73,8 @@ class SkyblockUpdateNotifier {
         for (const collection of collections) {
             if (!collection) continue;
             for (const [item, amount] of Object.entries(collection)) {
-                if (typeof fullCollections[item] !== "undefined") {
-                    fullCollections[item] += amount;
-                } else {
-                    fullCollections[item] = amount;
-                }
+                fullCollections[item] ??= 0;
+                fullCollections[item] += amount;
             }
         }
         return fullCollections;
@@ -83,9 +84,9 @@ class SkyblockUpdateNotifier {
     async updateMembers(memberIDs) {
         for (const id of memberIDs) {
             if (this.coopMembers.has(id)) continue;
-            const profile = await this.client.players.fetch(id);
+            const player = await this.client.players.fetch(id);
             // console.log(Object.keys(profile));
-            this.coopMembers.set(id, { name: profile.displayname, discord: profile.socialMedia?.links?.DISCORD });
+            this.coopMembers.set(id, { name: player.displayname, discord: player.socialMedia?.links?.DISCORD });
         }
     }
 
@@ -113,8 +114,8 @@ class SkyblockUpdateNotifier {
 
                 // console.log(player.name, item, oldPlayerAmount, newPlayerAmount);
 
-                if (oldPlayerAmount !== newPlayerAmount)
-                    contributed.push({ player, oldAmount: oldPlayerAmount, newAmount: newPlayerAmount });
+                if (oldPlayerAmount === newPlayerAmount) continue;
+                contributed.push({ player, oldAmount: oldPlayerAmount, newAmount: newPlayerAmount });
 
                 // if (!newCollection.collection) continue;
                 // console.log(oldCollection.player.name, oldCollection.collection?.[item], newCollection.collection?.[item]);
@@ -152,7 +153,7 @@ class SkyblockUpdateNotifier {
     collectionTierEmbed(item, tier, players) {
         // console.log(item, tier, players);
         const iconurl = this.getTextureUrl(item);
-        console.log(iconurl);
+        console.log(item, iconurl);
 
         return {
             title: `${item.name}: Reached tier ${tier.tier}`,
@@ -171,13 +172,11 @@ class SkyblockUpdateNotifier {
         const url = process.env.WEBHOOK_URL;
         const res = await fetch(url, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ embeds: components }),
         });
 
-        console.log(res.status, res.statusText);
+        console.log("Webhook response status:", res.status, res.statusText);
         if (!res.ok) console.log(await res.text());
     }
 
@@ -214,6 +213,16 @@ class SkyblockUpdateNotifier {
         }, null, 4));
     }
 
+    getTextureFromAssets(item) {
+        const itemOrBlock1_12 = assets1_12.findItemOrBlockByName(item);
+        const itemOrBlock1_21 = assets1_21.findItemOrBlockByName(item);
+
+        if (!itemOrBlock1_12 && !itemOrBlock1_21) return;
+
+        const texture = (itemOrBlock1_21 ?? itemOrBlock1_12).texture.replace("minecraft:", "");
+        return `https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/refs/heads/master/data/${!!itemOrBlock1_21 ? "1.21.4" : "1.12"}/${texture}.png`;
+    }
+
     getTextureUrl(item) {
         if (typeof item.skin !== "undefined") {
             const data = JSON.parse(Buffer.from(item.skin.value, "base64").toString("utf-8"));
@@ -231,25 +240,27 @@ class SkyblockUpdateNotifier {
             vanillaName = item.material.toLowerCase();
         }
 
+        return this.getTextureFromAssets(vanillaName);
+
         // const texturePath = await fetch()
 
         // if (!vanillaName) {
         //     console.log("could not find vanilla for ", item.material);
         //     return (
-        //         "https://raw.githubusercontent.com/rom1504/minecraft-assets/master/data/1.21.4/" +
+        //         "https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/master/data/1.21.4/" +
         //         assets.getTexture(item.material.toLowerCase()) +
         //         ".png"
         //     )
         // };
 
-        const itemOrBlock = assets.findItemOrBlockByName(vanillaName);
-        if (!itemOrBlock) return;
+        // const itemOrBlock = assets.findItemOrBlockByName(vanillaName);
+        // if (!itemOrBlock) return;
 
-        return (
-            "https://raw.githubusercontent.com/rom1504/minecraft-assets/master/data/1.21.4/" +
-            assets.getTexture(vanillaName) +
-            ".png"
-        );
+        // return (
+        //     "https://raw.githubusercontent.com/PrismarineJS/minecraft-assets/refs/heads/master/data/1.21.4/" +
+        //     assets1_12.getTexture(vanillaName) +
+        //     ".png"
+        // );
     }
 
     async main() {
@@ -273,7 +284,7 @@ class SkyblockUpdateNotifier {
         setInterval(async () => {
             console.log("Checking for updates...");
             await this.updateProfile();
-        }, 5 * 60 * 1000); // Check every five minutes
+        }, FETCH_INTERVAL);
     }
 }
 
