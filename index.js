@@ -189,7 +189,7 @@ class SkyblockUpdateNotifier {
 
     async updateProfile() {
         const profiles = await this.player.fetchSkyBlockProfiles(); // TODO: what's the rate limit on this?
-        const skyblock = profiles.find((x) => x.cute_name === "Pomegranate");
+        const skyblock = profiles.find((x) => x.profile_id === process.env.SKYBLOCK_PROFILE_ID);
         const members = Object.values(skyblock.members);
 
         await this.updateMembers(members.map((x) => x.player_id));
@@ -203,6 +203,7 @@ class SkyblockUpdateNotifier {
             player: this.coopMembers.get(x.player_id),
             collection: x.collection ?? null,
         }));
+        // console.log(perPlayer.map(x => x.player.name));
         // console.log(perPlayer);
 
         await this.checkForDifferences(perPlayer, this.collectionProgress);
