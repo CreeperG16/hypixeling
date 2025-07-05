@@ -1,0 +1,12 @@
+{
+  "name": "hypixeling",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^17.0.1",
+    "hypixel.ts": "^2.1.0",
+    "minecraft-assets": "^1.15.0"
+  }
+}
